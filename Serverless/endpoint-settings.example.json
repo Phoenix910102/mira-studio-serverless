@@ -1,0 +1,12 @@
+{
+  "name": "mira-studio-on-demand",
+  "workersMin": 0,
+  "workersMax": 1,
+  "idleTimeout": 5,
+  "executionTimeout": 900000,
+  "flashboot": true,
+  "gpuPriority": [
+    "NVIDIA GeForce RTX 4090",
+    "NVIDIA GeForce RTX 5090"
+  ]
+}
