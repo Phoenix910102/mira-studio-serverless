@@ -16,6 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
+      - name: Free disk space for the bundled model
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          docker system prune --all --force
+          df -h /
+
       - name: Check out source
         uses: actions/checkout@v4
 
@@ -39,5 +45,3 @@ jobs:
           tags: |
             ghcr.io/phoenix910102/mira-studio-worker:latest
             ghcr.io/phoenix910102/mira-studio-worker:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
