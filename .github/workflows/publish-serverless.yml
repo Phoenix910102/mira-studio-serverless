@@ -33,14 +33,12 @@ jobs:
       - name: Install crane
         env:
           CRANE_VERSION: v0.21.7
+          CRANE_SHA256: 1a57bc98207fa1c0d04bf760699099e26f8383499bfd55b99c1b919a928a7230
         run: |
           curl --fail --location --retry 3 \
             --output crane.tar.gz \
             "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
-          curl --fail --location --retry 3 \
-            --output checksums.txt \
-            "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/checksums.txt"
-          grep 'go-containerregistry_Linux_x86_64.tar.gz' checksums.txt | sha256sum --check
+          echo "$CRANE_SHA256  crane.tar.gz" | sha256sum --check
           tar -xzf crane.tar.gz crane
           sudo install crane /usr/local/bin/crane
           crane version
