@@ -15,18 +15,13 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      IMAGE: ghcr.io/phoenix910102/mira-studio-worker
+      MODEL_URL: https://huggingface.co/IbarakiDouji/WAI-NSFW-illustrious-SDXL/resolve/main/waiIllustriousSDXL_v170.safetensors
+      MODEL_SHA256: f116b0c78ff441467b0cdc8f1936e1ed18ea31e9997c7b132b1b8db533f0bd04
     steps:
-      - name: Free disk space for the bundled model
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
-          docker system prune --all --force
-          df -h /
-
       - name: Check out source
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -35,13 +30,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push private worker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./Serverless
-          file: ./Serverless/Dockerfile
-          push: true
-          platforms: linux/amd64
-          tags: |
-            ghcr.io/phoenix910102/mira-studio-worker:latest
-            ghcr.io/phoenix910102/mira-studio-worker:${{ github.sha }}
+      - name: Install crane
+        env:
+          CRANE_VERSION: v0.21.7
+        run: |
+          curl --fail --location --retry 3 \
+            --output crane.tar.gz \
+            "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+          curl --fail --location --retry 3 \
+            --output checksums.txt \
+            "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/checksums.txt"
+          grep 'go-containerregistry_Linux_x86_64.tar.gz' checksums.txt | sha256sum --check
+          tar -xzf crane.tar.gz crane
+          sudo install crane /usr/local/bin/crane
+          crane version
+
+      - name: Download and verify model layer
+        run: |
+          mkdir -p layer/comfyui/models/checkpoints
+          curl --fail --location --retry 5 --retry-all-errors \
+            --output layer/comfyui/models/checkpoints/waiIllustriousSDXL_v170.safetensors \
+            "$MODEL_URL"
+          echo "$MODEL_SHA256  layer/comfyui/models/checkpoints/waiIllustriousSDXL_v170.safetensors" | sha256sum --check
+          tar -I 'gzip -1' -cf model-layer.tar.gz -C layer .
+          rm -rf layer
+          df -h /
+
+      - name: Stream base image and append model layer
+        run: |
+          crane append \
+            --platform linux/amd64 \
+            --base runpod/worker-comfyui:5.8.6-base \
+            --new_layer model-layer.tar.gz \
+            --new_tag "$IMAGE:${GITHUB_SHA}"
+          crane tag "$IMAGE:${GITHUB_SHA}" latest
+          crane digest "$IMAGE:${GITHUB_SHA}"
